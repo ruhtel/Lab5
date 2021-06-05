@@ -1,16 +1,127 @@
 // script.js
 
 const img = new Image(); // used to load image from <input> and draw to canvas
+const form = document.getElementById('generate-meme');
+const imgInput = document.getElementById('image-input');
+
+const canvas = document.getElementById("user-image");
+const ctx = canvas.getContext('2d');
+
+const resetBtn = document.querySelector("[type='reset']");
+const readBtn = document.querySelector("[type='button']");
+const imgBtn = document.querySelector("[type='submit']");
+
+const volGrp = document.getElementById('volume-group');
+var volume = 0;
+
+// Below code copied directly from SpeechSynth API page
+const voiceSelect = document.getElementById('voice-selection');
+const synth = window.speechSynthesis;
+var voices = [];
+
+function populateVoiceList() {
+  voices = synth.getVoices();
+
+  for(var i = 0; i < voices.length ; i++) {
+    var option = document.createElement('option');
+    option.textContent = voices[i].name + ' (' + voices[i].lang + ')';
+
+    if(voices[i].default) {
+      option.textContent += ' -- DEFAULT';
+    }
+
+    option.setAttribute('data-lang', voices[i].lang);
+    option.setAttribute('data-name', voices[i].name);
+    voiceSelect.appendChild(option);
+  }
+}
+
+populateVoiceList();
+if (speechSynthesis.onvoiceschanged !== undefined) {
+  speechSynthesis.onvoiceschanged = populateVoiceList;
+}
 
 // Fires whenever the img object loads a new image (such as with img.src =)
 img.addEventListener('load', () => {
-  // TODO
+  
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Some helpful tips:
-  // - Fill the whole Canvas with black first to add borders on non-square images, then draw on top
-  // - Clear the form when a new image is selected
-  // - If you draw the image to canvas here, it will update as soon as a new image is selected
+  let newDim = getDimmensions(canvas.width, canvas.height, img.width, img.height);
+  ctx.drawImage(img, newDim.startX, newDim.startY, newDim.width, newDim.height);
 });
+
+imgInput.addEventListener('change', () => {
+  img.src = URL.createObjectURL(imgInput.files[0]); // from FAQ
+  img.alt = imgInput.files[0].name;
+});
+
+form.addEventListener('submit', (event) => {
+  event.preventDefault(); // from FAQ
+
+  let top = document.getElementById('text-top').value;
+  let bottom = document.getElementById('text-bottom').value;
+
+  ctx.fillStyle = 'white';
+  ctx.font = 'bold 32px Comic Sans';
+  ctx.textAlign = 'center';
+
+  ctx.fillText(top, canvas.width / 2, 40);
+  ctx.fillText(bottom, canvas.width / 2, canvas.height - 20);
+
+  ctx.strokeStyle = 'black'; // outline text
+
+  ctx.strokeText(top, canvas.width / 2, 40);
+  ctx.strokeText(bottom, canvas.width / 2, canvas.height - 20);
+
+  ctx.fillStyle = 'black'; // back to base fillstyle
+
+  imgBtn.disabled = true;
+  resetBtn.disabled = false;
+  readBtn.disabled = false;
+  voiceSelect.disabled = false;
+}); 
+
+resetBtn.addEventListener('click', () => {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  imgBtn.disabled = false;
+  resetBtn.disabled = true;
+  readBtn.disabled = true;
+  voiceSelect.disabled = true;
+});
+
+readBtn.addEventListener('click', () => {
+
+  let top = document.getElementById('text-top').value;
+  let bottom = document.getElementById('text-bottom').value;
+
+  let topVoice = new SpeechSynthesisUtterance(top);
+  let botVoice = new SpeechSynthesisUtterance(bottom);
+
+  let thisVoice = voiceSelect.selectedOptions[0].getAttribute('data-name');
+
+  for(let i = 0; i < voices.length; i++) {
+    if(thisVoice === voices[i].name) {
+      topVoice.voice = voices[i];
+      botVoice.voice = voices[i];
+    }
+  }
+
+  synth.speak(topVoice);
+  synth.speak(botVoice);
+});
+
+volGrp.addEventListener('change', () => {
+  let volLvl = volGrp.childNodes[3];
+  let volIcon = volGrp.childNodes[1];
+  volume = volLvl.value / 100;
+  
+  if(volLvl.value <= 0) volIcon.src = "icons/volume-level-0.svg";
+  else if(volLvl.value < 34) volIcon.src = "icons/volume-level-1.svg";
+  else if(volLvl.value < 67) volIcon.src = "icons/volume-level-2.svg";
+  else volIcon.src = "icons/volume-level-3.svg";
+});
+
 
 /**
  * Takes in the dimensions of the canvas and the new image, then calculates the new
